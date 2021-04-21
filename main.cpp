@@ -2,12 +2,19 @@
 #include <vector>
 #include <memory>
 using namespace std;
+enum colors{
+    white,
+    gray,
+    black,
+    red
+};
 template <typename T>
 class vertex {
 public:
     int id;
+    colors color=white;
     T storedObject;
-    vertex(){}
+    vertex()=default;
     vertex(T object){
         storedObject=object;
     }
@@ -30,7 +37,6 @@ public:
         this->to=to;
         this->weight=weight;
     }
-    ~edge(){}
 };
 
 template<typename V,typename W>
@@ -62,7 +68,7 @@ public:
     }
 
     vertex<V>* addVertex(V value) override {
-        vertexes.push_back(vertex(value));
+        vertexes.push_back(vertex<V>(value));
         for (int i=0;i<matrix.size();i++){
             matrix[i].push_back(nullptr);
         }
@@ -144,21 +150,179 @@ public:
         if (matrix[from->id][to->id]!= nullptr){hasEdge= true;}
         return hasEdge;
     }
+    void cycleColoring(vertex<V>* vertex){
+        vertex->color=red;
+        vector<edge<V,W>> edges=edgesFrom(vertex);
+        for (int j=0;j<edges.size();j++){
+            if (edges[j].to->color==gray){
+               cycleColoring(edges[j].to);
+                break;
+            }
+            if (edges[j].to->color==red){
+                break;
+            }
+        }
+        return;
+    }
 
+    bool DFS(vertex<V>* vertex){
+        if(vertex->color!=black){
+        vertex->color=gray;
+        vector<edge<V,W>> edges=edgesFrom(vertex);
+        for (int j=0;j<edges.size();j++){
+            if (edges[j].to->color==gray){
+               cycleColoring(edges[j].to);
+                return  false ;
+            }
+            if (edges[j].to->color==white){
+                if (!DFS(edges[j].to)){
+                    return false;
+                }
+            }
+        }
+        vertex->color=black;
+        }
+        return true;
+    }
+
+    vector<vertex<V>> isAcyclic(){
+        bool acyclic=true;
+        W weight;
+        for (int i=0;i<vertexes.size();i++){
+            acyclic=DFS(&vertexes[i]);
+            if (!acyclic){break;}
+        }
+        vector<vertex<V>> cycle;
+        for (int i=0;i<vertexes.size();i++){
+            if (vertexes[i].color==red){
+                cycle.push_back(vertexes[i]);
+            }
+            vertexes[i].color=white;
+        }
+        return cycle;
+    }
+    void transpose(){
+        edge<V,W>* buffer; vertex<V>* vertexBuffer;
+        for (int i=1;i<matrix.size();i++){
+            for (int j=0;j<matrix[i].size();j++){
+                if (j<i){
+                    buffer=matrix[i][j];
+                    matrix[i][j]=matrix[j][i];
+                    matrix[j][i]=buffer;
+                    if (matrix[j][i]!= nullptr){
+                    vertexBuffer= matrix[j][i]->from;
+                    matrix[j][i]->from=matrix[j][i]->to;
+                    matrix[j][i]->to=vertexBuffer;}
+                    if (matrix[i][j]!= nullptr){
+                        vertexBuffer= matrix[i][j]->from;
+                        matrix[i][j]->from=matrix[i][j]->to;
+                        matrix[i][j]->to=vertexBuffer;
+                    }
+                }
+            }
+        }
+    }
 };
-int main() {
-    adjacencyMatrixGraph<int,int> matrix;
-    for (int i=0;i<5;i++){
-        matrix.addVertex(i);
-    }
-    for (int i=1;i<5;i++){
-        matrix.addEdge(matrix.findVertex(0),matrix.findVertex(i),i);
-    }
-    matrix.removeEdge(matrix.findEdge(0,1));
 
-    vector<edge<int,int>> edges=matrix.edgesFrom(matrix.findVertex(0));
-    for (int i=0;i<edges.size();i++){
-       cout <<edges[i].weight<<endl;
+vector<string> split(string str){
+    int i=0;
+    vector<string> vector;
+    string stringToPush;
+    while ((str[i]!=' ')&&(i<str.size())){
+        stringToPush=stringToPush+str[i];
+        i++;
+    }
+    i++;
+    vector.push_back(stringToPush);
+    stringToPush="";
+    while ((str[i]!=' ')&&(i<str.size())){
+        stringToPush=stringToPush+str[i];
+        i++;
+    }
+    i++;
+    vector.push_back(stringToPush);
+    stringToPush="";
+    while ((str[i]!=' ')&&(i<str.size())){
+        stringToPush=stringToPush+str[i];
+        i++;
+    }
+    i++;
+    vector.push_back(stringToPush);
+    stringToPush="";
+    while ((str[i]!=' ')&&(i<str.size())){
+        stringToPush=stringToPush+str[i];
+        i++;
+    }
+    i++;
+    vector.push_back(stringToPush);
+    stringToPush="";
+    return vector;
+}
+
+int main() {
+    adjacencyMatrixGraph<string,int> matrix;
+    string strIn;
+    vector<string> command;
+    vector<string> output;
+    getline(cin,strIn);
+    while (strIn!="1"){
+        command=split(strIn);
+        if (command[0]=="ADD_VERTEX"){
+            matrix.addVertex(command[1]);
+        }
+        if (command[0]=="REMOVE_VERTEX"){
+            matrix.removeVertex(matrix.findVertex(command[1]));
+        }
+        if (command[0]=="ADD_EDGE"){
+            matrix.addEdge(matrix.findVertex(command[1]),matrix.findVertex(command[2]),stoi(command[3]));
+        }
+        if (command[0]=="REMOVE_EDGE"){
+            matrix.removeEdge(matrix.findEdge(command[1],command[2]));
+        }
+        if (command[0]=="HAS_EDGE"){
+            if (matrix.hasEdge(matrix.findVertex(command[1]),matrix.findVertex(command[2]))){
+                output.push_back("TRUE");
+            } else {
+                output.push_back("FALSE");
+            }
+        }
+        if (command[0]=="IS_ACYCLIC"){
+            vector<vertex<string>> cycle=matrix.isAcyclic();
+            if (cycle.size()==0){
+                output.push_back("ACYCLIC");
+            } else {
+                string answer=" ";
+                for (int i=0;i<cycle.size();i++){
+                    answer=answer+cycle[i].storedObject+" ";
+                }
+                output.push_back(answer);
+            }
+        }
+        if (command[0]=="TRANSPOSE"){
+            matrix.transpose();
+        }
+        getline(cin,strIn);
+    }
+    for (int i=0;i<output.size();i++){
+       cout <<output[i]<<endl;
     }
     return 0;
 }
+/*ADD_VERTEX S
+ADD_VERTEX A
+ADD_VERTEX B
+ADD_VERTEX C
+ADD_VERTEX D
+ADD_VERTEX E
+ADD_EDGE S A 5
+ADD_EDGE A B 3
+ADD_EDGE A C 8
+ADD_EDGE B C 1
+ADD_EDGE B D 4
+ADD_EDGE B E 11
+IS_ACYCLIC
+ADD_EDGE E A 0
+IS_ACYCLIC
+TRANSPOSE
+IS_ACYCLIC
+1*/
